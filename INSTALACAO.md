@@ -86,7 +86,7 @@ O Switch tem um navegador escondido, que o console abre quando a rede pede um lo
 3. Em **Configurações de DNS**, escolha **Manual**.
 4. Em **DNS primário**, digite `045.055.142.122` e salve.
 5. Escolha **Conectar a esta rede**. O Switch avisa que é preciso se registrar na rede. Toque em **Seguinte**.
-6. A página do SwitchBru abre. No campo de endereço, digite o IP que apareceu no terminal do PC, por exemplo `http://192.168.1.10:8889`.
+6. A página do SwitchBru abre. No campo de endereço, digite o IP que apareceu no terminal do PC, por exemplo `http://192.22.22.22:8889`.
 
 Avisos sobre esse método:
 
