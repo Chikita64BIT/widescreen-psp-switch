@@ -1,0 +1,690 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 910f322..4824bfa 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2197,6 +2197,8 @@ add_library(${CoreLibName} ${CoreLinkType}
+ 	Core/Debugger/WebSocket/ClientConfigSubscriber.h
+ 	Core/Debugger/WebSocket/GPUBufferSubscriber.cpp
+ 	Core/Debugger/WebSocket/GPUBufferSubscriber.h
++	Core/Debugger/WebSocket/StreamSubscriber.cpp
++	Core/Debugger/WebSocket/StreamSubscriber.h
+ 	Core/Debugger/WebSocket/GPURecordSubscriber.cpp
+ 	Core/Debugger/WebSocket/GPURecordSubscriber.h
+ 	Core/Debugger/WebSocket/GPUStatsSubscriber.cpp
+@@ -2538,6 +2540,8 @@ add_library(${CoreLibName} ${CoreLinkType}
+ 	Core/SaveStateRewind.cpp
+ 	Core/SaveStateRewind.h
+ 	Core/Screenshot.cpp
++	Core/WebStream.cpp
++	Core/WebStream.h
+ 	Core/Screenshot.h
+ 	Core/System.cpp
+ 	Core/System.h
+diff --git a/Core/Core.vcxproj b/Core/Core.vcxproj
+index 9a5aef3..6fcd510 100644
+--- a/Core/Core.vcxproj
++++ b/Core/Core.vcxproj
+@@ -448,6 +448,7 @@
+     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp" />
+     <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp" />
+     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp" />
++    <ClCompile Include="Debugger\WebSocket\StreamSubscriber.cpp" />
+     <ClCompile Include="Debugger\WebSocket\GPURecordSubscriber.cpp" />
+     <ClCompile Include="Debugger\WebSocket\GPUStatsSubscriber.cpp" />
+     <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp" />
+@@ -898,6 +899,7 @@
+     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
+     <ClCompile Include="SaveStateRewind.cpp" />
+     <ClCompile Include="Screenshot.cpp" />
++    <ClCompile Include="WebStream.cpp" />
+     <ClCompile Include="System.cpp" />
+     <ClCompile Include="TiltEventProcessor.cpp" />
+     <ClCompile Include="Util\AtracTrack.cpp" />
+@@ -983,6 +985,7 @@
+     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />
+     <ClInclude Include="Debugger\WebSocket\DisasmSubscriber.h" />
+     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h" />
++    <ClInclude Include="Debugger\WebSocket\StreamSubscriber.h" />
+     <ClInclude Include="Debugger\WebSocket\GPURecordSubscriber.h" />
+     <ClInclude Include="Debugger\WebSocket\GPUStatsSubscriber.h" />
+     <ClInclude Include="Debugger\WebSocket\HLESubscriber.h" />
+@@ -1253,6 +1256,7 @@
+     <ClInclude Include="MIPS\MIPSStackWalk.h" />
+     <ClInclude Include="SaveStateRewind.h" />
+     <ClInclude Include="Screenshot.h" />
++    <ClInclude Include="WebStream.h" />
+     <ClInclude Include="System.h" />
+     <ClInclude Include="TiltEventProcessor.h" />
+     <ClInclude Include="Util\AtracTrack.h" />
+diff --git a/Core/Core.vcxproj.filters b/Core/Core.vcxproj.filters
+index 2cd01b7..ceae774 100644
+--- a/Core/Core.vcxproj.filters
++++ b/Core/Core.vcxproj.filters
+@@ -634,6 +634,9 @@
+     <ClCompile Include="Screenshot.cpp">
+       <Filter>Core</Filter>
+     </ClCompile>
++    <ClCompile Include="WebStream.cpp">
++      <Filter>Core</Filter>
++    </ClCompile>
+     <ClCompile Include="FileLoaders\RetryingFileLoader.cpp">
+       <Filter>FileLoaders</Filter>
+     </ClCompile>
+@@ -751,6 +754,9 @@
+     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp">
+       <Filter>Debugger\WebSocket</Filter>
+     </ClCompile>
++    <ClCompile Include="Debugger\WebSocket\StreamSubscriber.cpp">
++      <Filter>Debugger\WebSocket</Filter>
++    </ClCompile>
+     <ClCompile Include="HLE\sceUsbAcc.cpp">
+       <Filter>HLE\Libraries</Filter>
+     </ClCompile>
+@@ -1905,6 +1911,9 @@
+     <ClInclude Include="Screenshot.h">
+       <Filter>Core</Filter>
+     </ClInclude>
++    <ClInclude Include="WebStream.h">
++      <Filter>Core</Filter>
++    </ClInclude>
+     <ClInclude Include="FileLoaders\RetryingFileLoader.h">
+       <Filter>FileLoaders</Filter>
+     </ClInclude>
+@@ -2013,6 +2022,9 @@
+     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h">
+       <Filter>Debugger\WebSocket</Filter>
+     </ClInclude>
++    <ClInclude Include="Debugger\WebSocket\StreamSubscriber.h">
++      <Filter>Debugger\WebSocket</Filter>
++    </ClInclude>
+     <ClInclude Include="ConfigValues.h">
+       <Filter>Core</Filter>
+     </ClInclude>
+diff --git a/Core/Debugger/WebSocket.cpp b/Core/Debugger/WebSocket.cpp
+index 6e12abe..38664fc 100644
+--- a/Core/Debugger/WebSocket.cpp
++++ b/Core/Debugger/WebSocket.cpp
+@@ -62,6 +62,8 @@
+ #include "Core/Debugger/WebSocket/MemorySubscriber.h"
+ #include "Core/Debugger/WebSocket/ReplaySubscriber.h"
+ #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
++#include "Core/Debugger/WebSocket/StreamSubscriber.h"
++#include "Core/WebStream.h"
+ #include "Core/Debugger/WebSocket/ClientConfigSubscriber.h"
+ 
+ typedef DebuggerSubscriber *(*SubscriberInit)(DebuggerEventHandlerMap &map);
+@@ -79,6 +81,7 @@ static const std::vector<SubscriberInit> subscribers({
+ 	&WebSocketMemoryInit,
+ 	&WebSocketReplayInit,
+ 	&WebSocketSteppingInit,
++	&WebSocketStreamInit,
+ 	&WebSocketClientConfigInit,
+ });
+ 
+@@ -188,7 +191,7 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
+ 		ws->Send(DebuggerErrorEvent("Bad message: binary WebSocket frames are not supported", LogLevel::LERROR));
+ 	});
+ 
+-	while (ws->Process(highActivity ? 1.0f / 1000.0f : 1.0f / 60.0f)) {
++	while (ws->Process(highActivity || WebStreamActive() ? 1.0f / 1000.0f : 1.0f / 60.0f)) {
+ 		std::lock_guard<std::mutex> guard(lifecycleLock);
+ 		// These send events that aren't just responses to requests
+ 
+diff --git a/Core/Debugger/WebSocket/StreamSubscriber.cpp b/Core/Debugger/WebSocket/StreamSubscriber.cpp
+new file mode 100644
+index 0000000..4e534a3
+--- /dev/null
++++ b/Core/Debugger/WebSocket/StreamSubscriber.cpp
+@@ -0,0 +1,189 @@
++// Copyright (c) 2026- PPSSPP Project.
++
++// This program is free software: you can redistribute it and/or modify
++// it under the terms of the GNU General Public License as published by
++// the Free Software Foundation, version 2.0 or later versions.
++
++// This program is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License 2.0 for more details.
++
++// A copy of the GPL 2.0 should have been included with the program.
++// If not, see http://www.gnu.org/licenses/
++
++// Official git repository and contact information can be found at
++// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
++
++#include "Core/Config.h"
++#include "Core/Debugger/WebSocket/StreamSubscriber.h"
++#include "Core/Debugger/WebSocket/WebSocketUtils.h"
++#include "Core/ELF/ParamSFO.h"
++#include "Core/SaveState.h"
++#include "Core/System.h"
++#include "Core/WebStream.h"
++
++struct WebSocketStreamState : public DebuggerSubscriber {
++	~WebSocketStreamState() override {
++		if (streaming_)
++			WebStreamRemoveClient();
++	}
++
++	void Start(DebuggerRequest &req);
++	void Stop(DebuggerRequest &req);
++	void Ack(DebuggerRequest &req);
++	void Broadcast(net::WebSocketServer *ws) override;
++
++protected:
++	bool streaming_ = false;
++	uint64_t lastFrameId_ = 0;
++	// Frames sent but not yet acknowledged by the client (stream.ack).
++	uint32_t inFlight_ = 0;
++	uint32_t maxInFlight_ = 2;
++	std::vector<uint8_t> frame_;
++};
++
++static void WebSocketGameStateSlot(DebuggerRequest &req, bool save);
++static void WebSocketGameSpeedGet(DebuggerRequest &req);
++static void WebSocketGameSpeedSet(DebuggerRequest &req);
++
++DebuggerSubscriber *WebSocketStreamInit(DebuggerEventHandlerMap &map) {
++	auto p = new WebSocketStreamState();
++	map["stream.start"] = [p](DebuggerRequest &req) { p->Start(req); };
++	map["stream.stop"] = [p](DebuggerRequest &req) { p->Stop(req); };
++	map["stream.ack"] = [p](DebuggerRequest &req) { p->Ack(req); };
++	// A remote player has no keyboard on the host, and the window may be hidden, so
++	// save states and fast-forward need debugger events too. These follow the
++	// game.state.* and game.speed.* events of newer PPSSPP versions (a subset).
++	map["game.state.save"] = [](DebuggerRequest &req) { WebSocketGameStateSlot(req, true); };
++	map["game.state.load"] = [](DebuggerRequest &req) { WebSocketGameStateSlot(req, false); };
++	map["game.speed.get"] = &WebSocketGameSpeedGet;
++	map["game.speed.set"] = &WebSocketGameSpeedSet;
++	return p;
++}
++
++// Start sending the displayed game image (stream.start)
++//
++// After the response, each new frame arrives as a binary WebSocket message holding
++// one JPEG image. Calling it again while streaming just changes the parameters.
++//
++// Parameters:
++//  - quality: optional JPEG quality from 1 to 100, defaults to 75.
++//  - maxRes: optional largest multiple of 480x272 to send, defaults to 1. 0 sends
++//    the render resolution.
++//  - maxInFlight: optional number of frames that may be sent before the client
++//    acknowledges one with stream.ack, defaults to 2. 0 sends without waiting.
++//
++// Response (same event name) with no extra data.
++void WebSocketStreamState::Start(DebuggerRequest &req) {
++	uint32_t quality = 75;
++	uint32_t maxRes = 1;
++	uint32_t maxInFlight = 2;
++	if (!req.ParamU32("quality", &quality, false, DebuggerParamType::OPTIONAL))
++		return;
++	if (!req.ParamU32("maxRes", &maxRes, false, DebuggerParamType::OPTIONAL))
++		return;
++	if (!req.ParamU32("maxInFlight", &maxInFlight, false, DebuggerParamType::OPTIONAL))
++		return;
++	if (quality < 1 || quality > 100)
++		return req.Fail("Parameter 'quality' must be between 1 and 100");
++	if (maxRes > 10)
++		return req.Fail("Parameter 'maxRes' must be between 0 and 10");
++
++	maxInFlight_ = maxInFlight;
++	inFlight_ = 0;
++	if (streaming_) {
++		WebStreamUpdateClient((int)quality, (int)maxRes);
++	} else {
++		WebStreamAddClient((int)quality, (int)maxRes);
++		streaming_ = true;
++	}
++	req.Respond();
++}
++
++// Stop sending frames (stream.stop)
++//
++// No parameters.
++//
++// Response (same event name) with no extra data.
++void WebSocketStreamState::Stop(DebuggerRequest &req) {
++	if (streaming_) {
++		WebStreamRemoveClient();
++		streaming_ = false;
++	}
++	req.Respond();
++}
++
++// Acknowledge a received frame (stream.ack)
++//
++// No parameters. There is no response, since this is sent for every frame. Not
++// responding also keeps the debugger polling quickly while frames flow.
++void WebSocketStreamState::Ack(DebuggerRequest &req) {
++	if (inFlight_ > 0)
++		inFlight_--;
++}
++
++void WebSocketStreamState::Broadcast(net::WebSocketServer *ws) {
++	if (!streaming_ || (maxInFlight_ != 0 && inFlight_ >= maxInFlight_))
++		return;
++	if (WebStreamTakeFrame(&lastFrameId_, &frame_)) {
++		ws->Send(frame_);
++		inFlight_++;
++	}
++}
++
++// Save or load a savestate slot of the running game (game.state.save, game.state.load)
++//
++// The operation is queued and happens at the end of the next emulated frame.
++//
++// Parameters:
++//  - slot: number, a savestate slot from 0, like the save and load keys use.
++//  - wait: accepted for compatibility with newer versions, but ignored.
++//
++// Response (same event name) with no extra data once queued.
++static void WebSocketGameStateSlot(DebuggerRequest &req, bool save) {
++	uint32_t slot = 0;
++	if (!req.ParamU32("slot", &slot))
++		return;
++	if (slot >= (uint32_t)g_Config.iSaveStateSlotCount)
++		return req.Fail("Invalid slot");
++	if (!PSP_IsInited())
++		return req.Fail("Game not running");
++
++	const char *event = save ? "game.state.save" : "game.state.load";
++	auto callback = [event](SaveState::Status status, std::string_view message) {
++		if (status == SaveState::Status::FAILURE)
++			ERROR_LOG(Log::System, "%s: %.*s", event, (int)message.size(), message.data());
++	};
++	const std::string prefix = SaveState::GetGamePrefix(g_paramSFO);
++	if (save)
++		SaveState::SaveSlot(prefix, (int)slot, callback);
++	else
++		SaveState::LoadSlot(prefix, (int)slot, callback);
++	req.Respond();
++}
++
++// Request the current emulation speed (game.speed.get)
++//
++// No parameters.
++//
++// Response (same event name):
++//  - fastForward: boolean, whether unlimited fast-forward is on.
++static void WebSocketGameSpeedGet(DebuggerRequest &req) {
++	JsonWriter &json = req.Respond();
++	json.writeBool("fastForward", PSP_CoreParameter().fastForward);
++}
++
++// Change the emulation speed (game.speed.set)
++//
++// Parameters:
++//  - fastForward: boolean, run unlimited, same as holding the fast-forward key.
++//
++// Response (same event name): the same fields as game.speed.get.
++static void WebSocketGameSpeedSet(DebuggerRequest &req) {
++	bool fastForward = false;
++	if (!req.ParamBool("fastForward", &fastForward))
++		return;
++	PSP_CoreParameter().fastForward = fastForward;
++	WebSocketGameSpeedGet(req);
++}
+diff --git a/Core/Debugger/WebSocket/StreamSubscriber.h b/Core/Debugger/WebSocket/StreamSubscriber.h
+new file mode 100644
+index 0000000..26750b3
+--- /dev/null
++++ b/Core/Debugger/WebSocket/StreamSubscriber.h
+@@ -0,0 +1,22 @@
++// Copyright (c) 2026- PPSSPP Project.
++
++// This program is free software: you can redistribute it and/or modify
++// it under the terms of the GNU General Public License as published by
++// the Free Software Foundation, version 2.0 or later versions.
++
++// This program is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License 2.0 for more details.
++
++// A copy of the GPL 2.0 should have been included with the program.
++// If not, see http://www.gnu.org/licenses/
++
++// Official git repository and contact information can be found at
++// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
++
++#pragma once
++
++#include "Core/Debugger/WebSocket/WebSocketUtils.h"
++
++DebuggerSubscriber *WebSocketStreamInit(DebuggerEventHandlerMap &map);
+diff --git a/Core/WebStream.cpp b/Core/WebStream.cpp
+new file mode 100644
+index 0000000..2a4c4f6
+--- /dev/null
++++ b/Core/WebStream.cpp
+@@ -0,0 +1,190 @@
++// Copyright (c) 2026- PPSSPP Project.
++
++// This program is free software: you can redistribute it and/or modify
++// it under the terms of the GNU General Public License as published by
++// the Free Software Foundation, version 2.0 or later versions.
++
++// This program is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License 2.0 for more details.
++
++// A copy of the GPL 2.0 should have been included with the program.
++// If not, see http://www.gnu.org/licenses/
++
++// Official git repository and contact information can be found at
++// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
++
++#include <algorithm>
++#include <atomic>
++#include <cstring>
++#include <mutex>
++
++#include "ext/jpge/jpge.h"
++#include "Common/Log.h"
++#include "Common/Thread/Promise.h"
++#include "Common/Thread/ThreadManager.h"
++#include "Core/Screenshot.h"
++#include "Core/WebStream.h"
++#include "GPU/Common/GPUDebugInterface.h"
++#include "GPU/GPUCommon.h"
++
++static std::atomic<int> g_clients{ 0 };
++static std::atomic<int> g_quality{ 75 };
++static std::atomic<int> g_maxRes{ 1 };
++// The newest frame read back but not encoded yet. A frame that arrives while the
++// encoder is busy replaces it, so the encoder always picks up the latest one.
++struct PendingFrame {
++	GPUDebugBuffer buf;
++	u32 w = 0;
++	u32 h = 0;
++	bool valid = false;
++};
++static std::mutex g_pendingLock;
++static PendingFrame g_pending;
++// Guarded by g_pendingLock: true while an encode task is queued or running.
++static bool g_encoding = false;
++
++static std::mutex g_frameLock;
++static std::vector<uint8_t> g_frame;
++static uint64_t g_frameId = 0;
++
++void WebStreamAddClient(int quality, int maxRes) {
++	WebStreamUpdateClient(quality, maxRes);
++	g_clients++;
++}
++
++void WebStreamUpdateClient(int quality, int maxRes) {
++	g_quality = std::clamp(quality, 1, 100);
++	g_maxRes = std::clamp(maxRes, 0, 10);
++}
++
++void WebStreamRemoveClient() {
++	if (--g_clients <= 0) {
++		g_clients = 0;
++		std::lock_guard<std::mutex> guard(g_frameLock);
++		g_frame.clear();
++	}
++}
++
++bool WebStreamActive() {
++	return g_clients > 0;
++}
++
++bool WebStreamTakeFrame(uint64_t *lastId, std::vector<uint8_t> *jpeg) {
++	std::lock_guard<std::mutex> guard(g_frameLock);
++	if (g_frame.empty() || g_frameId == *lastId)
++		return false;
++	*lastId = g_frameId;
++	*jpeg = g_frame;
++	return true;
++}
++
++static void EncodeFrame(const GPUDebugBuffer &buf, u32 w, u32 h, int quality) {
++	u8 *temp = nullptr;
++	std::vector<u8> packed;
++	const u8 *rgb;
++	w = std::min(w, buf.GetStride());
++	h = std::min(h, buf.GetHeight());
++	if (buf.GetFormat() == GPU_DBG_FORMAT_8888) {
++		// The usual readback format. ConvertBufferToScreenshot() handles it one pixel
++		// at a time through a generic converter, too slow to keep up every frame.
++		packed.resize(w * h * 3);
++		const u8 *src = buf.GetData();
++		for (u32 y = 0; y < h; y++) {
++			const u32 srcY = buf.GetFlipped() ? buf.GetHeight() - y - 1 : y;
++			const u8 *s = src + srcY * buf.GetStride() * 4;
++			u8 *d = &packed[y * w * 3];
++			for (u32 x = 0; x < w; x++) {
++				d[0] = s[0];
++				d[1] = s[1];
++				d[2] = s[2];
++				s += 4;
++				d += 3;
++			}
++		}
++		rgb = packed.data();
++	} else {
++		rgb = ConvertBufferToScreenshot(buf, false, temp, w, h);
++		if (!rgb) {
++			delete[] temp;
++			return;
++		}
++		// Without a conversion the rows keep the buffer's stride; the encoder wants them packed.
++		if (!temp && buf.GetStride() != w) {
++			packed.resize(w * h * 3);
++			for (u32 y = 0; y < h; y++) {
++				memcpy(&packed[y * w * 3], rgb + y * buf.GetStride() * 3, w * 3);
++			}
++			rgb = packed.data();
++		}
++	}
++
++	jpge::params params;
++	params.m_quality = quality;
++	// Generous: a JPEG this size is far smaller than the raw image.
++	int size = std::max(1024, (int)(w * h * 3));
++	std::vector<uint8_t> jpeg(size);
++	bool ok = jpge::compress_image_to_jpeg_file_in_memory(jpeg.data(), size, w, h, 3, rgb, params);
++	delete[] temp;
++	if (!ok)
++		return;
++
++	jpeg.resize(size);
++	std::lock_guard<std::mutex> guard(g_frameLock);
++	g_frame = std::move(jpeg);
++	g_frameId++;
++}
++
++// Encodes pending frames until none is left, then lets the next frame queue a new task.
++static void EncodeLoop() {
++	for (;;) {
++		PendingFrame frame;
++		{
++			std::lock_guard<std::mutex> guard(g_pendingLock);
++			if (!g_pending.valid || !WebStreamActive()) {
++				g_pending.valid = false;
++				g_encoding = false;
++				return;
++			}
++			frame = std::move(g_pending);
++			g_pending.valid = false;
++		}
++		EncodeFrame(frame.buf, frame.w, frame.h, g_quality);
++	}
++}
++
++bool WebStreamNotifyPostGameRender(Draw::DrawContext *draw) {
++	if (!WebStreamActive() || !gpuDebug)
++		return false;
++
++	const int maxRes = g_maxRes;
++	GPUDebugBuffer buf;
++	if (!gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_DISPLAY, maxRes > 0 ? maxRes : -1))
++		return true;
++
++	u32 w, h;
++	if (buf.IsBackBuffer() || buf.GetScaleFactor() <= 0) {
++		w = buf.GetStride();
++		h = buf.GetHeight();
++	} else {
++		// The readback is downscaled to maxRes, but keeps reporting the render scale.
++		int scale = buf.GetScaleFactor();
++		if (maxRes > 0)
++			scale = std::min(scale, maxRes);
++		// Crop to the PSP screen; some games render to larger buffers.
++		w = 480 * scale;
++		h = 272 * scale;
++	}
++
++	std::lock_guard<std::mutex> guard(g_pendingLock);
++	g_pending.buf = std::move(buf);
++	g_pending.w = w;
++	g_pending.h = h;
++	g_pending.valid = true;
++	if (!g_encoding) {
++		g_encoding = true;
++		g_threadManager.EnqueueTask(new IndependentTask(TaskType::CPU_COMPUTE, TaskPriority::HIGH, &EncodeLoop));
++	}
++	return true;
++}
+diff --git a/Core/WebStream.h b/Core/WebStream.h
+new file mode 100644
+index 0000000..d10221a
+--- /dev/null
++++ b/Core/WebStream.h
+@@ -0,0 +1,44 @@
++// Copyright (c) 2026- PPSSPP Project.
++
++// This program is free software: you can redistribute it and/or modify
++// it under the terms of the GNU General Public License as published by
++// the Free Software Foundation, version 2.0 or later versions.
++
++// This program is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License 2.0 for more details.
++
++// A copy of the GPL 2.0 should have been included with the program.
++// If not, see http://www.gnu.org/licenses/
++
++// Official git repository and contact information can be found at
++// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
++
++#pragma once
++
++#include <cstdint>
++#include <vector>
++
++// Streams the displayed game image as JPEG frames to debugger clients
++// (see Core/Debugger/WebSocket/StreamSubscriber.cpp), so a remote browser can
++// show the game without capturing the host window.
++
++namespace Draw {
++class DrawContext;
++}
++
++// Each streaming client holds a reference. Quality is 1-100, maxRes is the
++// largest multiple of 480x272 to send (0 for the render resolution).
++void WebStreamAddClient(int quality, int maxRes);
++void WebStreamUpdateClient(int quality, int maxRes);
++void WebStreamRemoveClient();
++bool WebStreamActive();
++
++// Called on the render thread after the game frame is drawn, next to
++// ScreenshotNotifyPostGameRender(). Returns true if it read back a framebuffer,
++// which may have ended the current render pass.
++bool WebStreamNotifyPostGameRender(Draw::DrawContext *draw);
++
++// Copies the newest encoded frame if it is newer than *lastId.
++bool WebStreamTakeFrame(uint64_t *lastId, std::vector<uint8_t> *jpeg);
+diff --git a/UI/EmuScreen.cpp b/UI/EmuScreen.cpp
+index b294842..8bca171 100644
+--- a/UI/EmuScreen.cpp
++++ b/UI/EmuScreen.cpp
+@@ -72,6 +72,7 @@ using namespace std::placeholders;
+ #include "Core/RetroAchievements.h"
+ #include "Core/SaveState.h"
+ #include "Core/Screenshot.h"
++#include "Core/WebStream.h"
+ #include "UI/ImDebugger/ImDebugger.h"
+ #include "Core/HLE/__sceAudio.h"
+ // #include "Core/HLE/proAdhoc.h"
+@@ -1816,7 +1817,9 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
+ 			gpu->EndHostFrame();
+ 
+ 			// The right time to run this
+-			if (ScreenshotNotifyPostGameRender(draw) && skipBufferEffects) {
++			bool readBack = ScreenshotNotifyPostGameRender(draw);
++			readBack = WebStreamNotifyPostGameRender(draw) || readBack;
++			if (readBack && skipBufferEffects) {
+ 				// Need to restore the backbuffer render pass, it probably got destroyed.
+ 				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+ 			}
+diff --git a/Windows/MainWindow.cpp b/Windows/MainWindow.cpp
+index 480a4c6..bab51d7 100644
+--- a/Windows/MainWindow.cpp
++++ b/Windows/MainWindow.cpp
+@@ -171,6 +171,7 @@ namespace MainWindow {
+ 	static bool memoryMapLoadPending = false;
+ 	static bool g_wasMinimized = false;
+ 	static bool g_inForcedResize = false;
++	static bool g_startHidden = false;
+ 
+ 
+ 	// gross hack
+@@ -490,6 +491,10 @@ namespace MainWindow {
+ 		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+ 	}
+ 
++	void SetStartHidden(bool hidden) {
++		g_startHidden = hidden;
++	}
++
+ 	BOOL Show(HINSTANCE hInstance) {
+ 		hInst = hInstance; // Store instance handle in our global variable.
+ 
+@@ -515,7 +520,7 @@ namespace MainWindow {
+ 		}
+ 
+ 		// Start as hidden in fullscreen mode. Makes for a nicer transition.
+-		placement.showCmd = g_Config.bFullScreen ? SW_HIDE : WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
++		placement.showCmd = g_Config.bFullScreen || g_startHidden ? SW_HIDE : WindowSizeStateToShowCmd((WindowSizeState)g_Config.iWindowSizeState);
+ 		placement.rcNormalPosition.left = g_Config.iWindowX;
+ 		placement.rcNormalPosition.top = g_Config.iWindowY;
+ 		placement.rcNormalPosition.right = g_Config.iWindowX + g_Config.iWindowWidth;
+diff --git a/Windows/MainWindow.h b/Windows/MainWindow.h
+index c4ebf26..0341229 100644
+--- a/Windows/MainWindow.h
++++ b/Windows/MainWindow.h
+@@ -60,6 +60,9 @@ namespace MainWindow
+ 
+ 	void Init(HINSTANCE hInstance);
+ 	BOOL Show(HINSTANCE hInstance);
++	// Keeps the window hidden, for a remote player who sees the game through the
++	// debugger stream (--hidden). Call before Show().
++	void SetStartHidden(bool hidden);
+ 	void CreateDisasmWindow();
+ 	void CreateGeDebuggerWindow();
+ 	void CreateMemoryWindow();
+diff --git a/Windows/main.cpp b/Windows/main.cpp
+index 9d042ba..c5bba46 100644
+--- a/Windows/main.cpp
++++ b/Windows/main.cpp
+@@ -1118,6 +1118,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
+ 			} else if (!wcscmp(wideArgs[i].c_str(), L"--windowed")) {
+ 				g_Config.bFullScreen = false;
+ 				g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
++			} else if (!wcscmp(wideArgs[i].c_str(), L"--hidden")) {
++				// Fullscreen would show the window again.
++				g_Config.bFullScreen = false;
++				g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
++				MainWindow::SetStartHidden(true);
++				// Nobody hears the host speakers when playing remotely. Not saved, so the
++				// sound comes back when PPSSPP is opened normally.
++				g_Config.bEnableSound = false;
++				g_Config.DoNotSaveSetting(&g_Config.bEnableSound);
+ 			}
+ 
+ 			if (wideArgs[i].find(gpuBackend) != std::wstring::npos && wideArgs[i].size() > gpuBackend.size()) {
