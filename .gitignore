@@ -1,0 +1,11 @@
+node_modules/
+roms/*
+!roms/.gitkeep
+ppsspp/
+saves/
+.runtime/
+ppsspp-src/
+.runtime-build.log
+lib/
+.runtime-libretro-*.log
+native/build/

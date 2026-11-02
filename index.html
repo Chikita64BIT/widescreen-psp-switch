@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0f1116">
+    <meta name="description" content="Jogue PSP no navegador do Nintendo Switch: o PC roda o PPSSPP e transmite a imagem pela rede.">
+    <title>WideScreen — PSP no Switch</title>
+    <link rel="stylesheet" href="./src/library.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="WideScreen início">
+          <span class="brand-mark"></span>
+          <span class="brand-name">WIDE<span>SCREEN</span></span>
+        </a>
+        <div class="local-badge"><span class="pulse"></span> BIBLIOTECA LOCAL</div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow">PSP · STREAMING PARA O NINTENDO SWITCH</p>
+            <h1>Uma tela larga.<br><em>Na palma da mão.</em></h1>
+            <p class="intro">Escolha um jogo da biblioteca. O PC abre o PPSSPP, captura a janela e transmite a imagem pelo Wi-Fi; os Joy-Con do Switch controlam o jogo.</p>
+            <div class="hero-actions">
+              <a class="primary-button" href="#biblioteca">Ver biblioteca <span aria-hidden="true">↓</span></a>
+              <span class="engine-note"><span class="engine-dot"></span> PPSSPP no PC · imagem no Switch</span>
+            </div>
+          </div>
+
+          <div class="console-art" aria-hidden="true">
+            <div class="art-stick"></div>
+            <div class="art-dpad"><span></span><span></span></div>
+            <div class="art-screen">
+              <div class="art-sun"></div>
+              <div class="art-hill hill-back"></div>
+              <div class="art-hill hill-front"></div>
+              <div class="art-caption">480 × 272</div>
+            </div>
+            <div class="art-buttons"><span>△</span><span>□</span><span>○</span><span>✕</span></div>
+          </div>
+        </section>
+
+        <div class="system-warning" id="systemWarning" hidden></div>
+
+        <section class="library-section" id="biblioteca">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">SUA COLEÇÃO</p>
+              <h2>Biblioteca de jogos</h2>
+            </div>
+            <button class="refresh-button" id="refreshButton" type="button"><span aria-hidden="true">↻</span> Atualizar</button>
+          </div>
+
+          <p class="library-status" id="libraryStatus" role="status" aria-live="polite">Procurando jogos…</p>
+          <div class="game-groups" id="gameList"></div>
+          <div class="empty-state" id="emptyState" hidden>
+            <div class="empty-icon" aria-hidden="true">＋</div>
+            <h3>A biblioteca está vazia</h3>
+            <p>Coloque seus arquivos <code>.iso</code>, <code>.cso</code>, <code>.chd</code> ou <code>.pbp</code> nas pastas de idioma dentro de <code>roms/</code> e atualize a biblioteca.</p>
+          </div>
+        </section>
+
+        <section class="info-grid" aria-label="Instruções">
+          <article class="info-card">
+            <span class="info-number">01</span>
+            <h3>Adicione seus jogos</h3>
+            <p>Copie jogos que você tem direito de usar para <code>roms/portugues-br</code>, <code>roms/ingles</code> ou <code>roms/multilingue</code>.</p>
+          </article>
+          <article class="info-card">
+            <span class="info-number">02</span>
+            <h3>Abra no console</h3>
+            <p>Inicie <code>start.bat</code> e acesse no Switch o endereço exibido no terminal, pelo navegador aberto via DNS. Os dois precisam estar no mesmo Wi-Fi.</p>
+          </article>
+          <article class="info-card">
+            <span class="info-number">03</span>
+            <h3>Jogue do seu jeito</h3>
+            <p>Toque em "Jogar no Switch". O analógico esquerdo é o analógico do PSP, ZL é o turbo e ZR abre o menu. Deixe a janela do PPSSPP à vista no PC.</p>
+          </article>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>WIDESCREEN <span class="footer-separator">/</span> PSP</span>
+        <span>PPSSPP no PC · Jogos fornecidos pelo usuário</span>
+      </footer>
+    </div>
+    <script src="./src/library.js" defer></script>
+  </body>
+</html>
